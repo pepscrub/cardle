@@ -1,0 +1,60 @@
+{
+  "darkMode": {
+    "hint": "Toggle {{mode}} mode off"
+  },
+  "branding": {
+    "cardle": "Cardle",
+    "cardle_description": "Guess the car"
+  },
+  "common": {
+    "make": "make",
+    "model": "model",
+    "attempt": "attempt",
+    "attempt_other": "attempts"
+  },
+  "stats": {
+    "gamesPlayed": "Games Played",
+    "won": "Won",
+    "current_streak": "Current Streak",
+    "longest_streak": "Longest Streak",
+    "title": "Statistics",
+    "winRate": "{{winRate}}%",
+    "shareYourResults": "Share Your Results",
+    "copyToClipboard": {
+      "success": "Successfully copied to clipboard",
+      "error": "Could not copy to clipboard"
+    }
+  },
+  "settings": {
+    "title": "Settings",
+    "hardMode": {
+      "title": "Hard Mode",
+      "desc": "You have to guess the exact year."
+    },
+    "darkMode": {
+      "title": "Dark Mode"
+    }
+  },
+  "game": {
+    "guessPlaceholder": "Make your guess",
+    "guess_zero": "Better luck next time!",
+    "guess": "Guess",
+    "skip": "Skip",
+    "skipped": "Skipped",
+    "guess_one": "last guess!",
+    "guess_other": "{{count}} guesses left",
+    "guessed": "Guessed in {{count}}",
+    "revealHint": "Reveal Hint",
+    "baseModelHint": "This hint can sometimes give away the model of the car.",
+    "hint": {
+      "cylinders": "Cylinders",
+      "transmission": "Transmission",
+      "transmissionDesc": "Transmission Description",
+      "driveTrain": "Drive Train",
+      "fuelType": "Fuel Type",
+      "vehicleClass": "Car Type",
+      "mpgData": "MPG Data",
+      "baseModel": "Base Model"
+    }
+  }
+}
