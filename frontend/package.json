@@ -7,8 +7,7 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
-    "preview": "vite preview",
-    "deploy-gcp": "gsutil cp -r dist/ gs://cardle-frontend"
+    "preview": "vite preview"
   },
   "dependencies": {
     "@emotion/react": "^11.11.3",
@@ -18,17 +17,20 @@
     "@mui/material-next": "^6.0.0-alpha.118",
     "@mui/styled-engine": "^5.15.5",
     "@mui/styled-engine-sc": "^6.0.0-alpha.12",
+    "@mui/x-charts": "^6.19.3",
     "axios": "^1.6.5",
     "devtools-detect": "^4.0.1",
     "dotenv": "^16.4.1",
     "i18next": "^23.7.16",
     "js-confetti": "^0.12.0",
     "luxon": "^3.4.4",
+    "mui-color-input": "^2.0.1",
     "notistack": "^3.0.1",
     "react": "^18.2.0",
     "react-countdown": "^2.3.5",
     "react-dom": "^18.2.0",
     "react-i18next": "^14.0.0",
+    "react-loading-skeleton": "^3.3.1",
     "react-use-localstorage": "^3.5.3",
     "react-use-promise": "^0.5.0",
     "styled-components": "^6.1.8"

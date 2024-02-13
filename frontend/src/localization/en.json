@@ -1,4 +1,7 @@
 {
+  "attempt": {
+    "error": "Could not read user requests, invalid value: '{{guess}}'"
+  },
   "darkMode": {
     "hint": "Toggle {{mode}} mode off"
   },
@@ -29,13 +32,72 @@
     "title": "Settings",
     "hardMode": {
       "title": "Hard Mode",
-      "desc": "You have to guess the exact year."
+      "desc": "You have to guess the exact model and year."
     },
     "darkMode": {
       "title": "Dark Mode"
+    },
+    "startColor": {
+      "title": "Start color",
+      "desc": "Gradient start color for nav / side menu"
+    },
+    "endColor": {
+      "title": "End color",
+      "desc": "Gradient end color for nav / side menu"
+    }
+  },
+  "results": {
+    "platform": {
+      "youtube": "YouTube",
+      "google": "Google",
+      "wiki": "Wiki"
+    }
+  },
+  "shamelessPlug": {
+    "coffee": "Buy me a coffee"
+  },
+  "otherDles": {
+    "title": "Other daily games",
+    "cardle": {
+      "title": "Cardle",
+      "hint": "Guess the car"
+    },
+    "gamedle": {
+      "title": "Gamedle",
+      "hint": "Guess the game off a variety of different clues"
+    },
+    "gtg": {
+      "title": "Guess the Game",
+      "hint": "Guess the game based off a screenshot of gameplay"
+    },
+    "worldle": {
+      "title": "Worldle",
+      "hint": "Guess the country based on it's outline"
+    },
+    "tradle": {
+      "title": "Tradle",
+      "hint": "Guess the country based off the countries GDP"
+    },
+    "chrono": {
+      "title": "Chronophoto",
+      "hint": "Guess the year of the image"
+    },
+    "timeguesser": {
+      "title": "TimeGuesser",
+      "hint": "Guess the year and location of a photo"
+    },
+    "frammed": {
+      "title": "Frammed",
+      "hint": "Guess the movie based off a frame of the movie"
+    },
+    "contexto": {
+      "title": "Contexto",
+      "hint": "Find the secret word. You have unlimited guesses"
     }
   },
   "game": {
+    "make": "Make",
+    "model": "Model",
     "guessPlaceholder": "Make your guess",
     "guess_zero": "Better luck next time!",
     "guess": "Guess",

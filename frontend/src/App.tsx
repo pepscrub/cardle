@@ -8,7 +8,8 @@ import { FC, createContext, useEffect, useMemo, useState } from 'react';
 import useLocalStorage from 'react-use-localstorage';
 import { SnackbarProvider, useSnackbar } from 'notistack';
 import devtools from 'devtools-detect';
-import JSConfetti from 'js-confetti'
+import { themeOptions } from './theme';
+import { useConfetti } from './util/useConfetti';
 
 i18next
   .use(initReactI18next)
@@ -23,13 +24,15 @@ export const NavBarContext = createContext({ open: false, setOpen: () => {}, clo
 
 const DevChecker: FC = () => {
   const { enqueueSnackbar } = useSnackbar();
+  const jsConfetti = useConfetti();
 
   useEffect(() => {
     window.addEventListener('devtoolschange', () => {
-      const jsConfetti = new JSConfetti();
       if (!devtools.isOpen) {
-        enqueueSnackbar('CHEATER CHEATER PUMPKIN EATER', { variant: 'warning' })
-        jsConfetti.addConfetti({
+        enqueueSnackbar('CHEATER CHEATER PUMPKIN EATER', { variant: 'warning' });
+        console.clear();
+        console.log('%cHaving a look around? If you find any bugs, report them to %cbrendan@freeman.dev', 'font-family: "Fira Code", monospace;', 'font-family: "Roboto", sans-serif; font-weight: 800; color: #34bacf;');
+        jsConfetti?.addConfetti({
           emojis: ['🎃', '🤥', '🤹🏻‍♀️', '🚫', '🤡'],
        });
       }
@@ -57,6 +60,7 @@ const App = () => {
   const theme = useMemo(
     () =>
       createTheme({
+        ...themeOptions,
         palette: {
           mode: darkMode as PaletteMode,
         },

@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/rules-of-hooks */
-import { Card, CssBaseline, Fab, ThemeProvider, Tooltip, Typography, createTheme, Paper, useMediaQuery, LinearProgress, Box, TextField } from "@mui/material";
+import { Card, CssBaseline, Fab, ThemeProvider, Tooltip, Typography, createTheme, Paper, useMediaQuery, LinearProgress, Box, TextField, Grid } from "@mui/material";
 import axios from "axios"
 import { Dispatch, FC, SetStateAction, useEffect, useMemo, useRef, useState } from "react";
 import usePromise from "react-use-promise"
@@ -103,6 +103,8 @@ const App = () => {
   const [id, setId] = useLocalStorage('id', 0);
   const [gameData, setGameData] = useState<GameData[]>([]);
   const [pages, setPages] = useState(0);
+  const [classKey, setClassKey] = useState('notes');
+  const [classDesc, setClassDesc] = useState('');
   const [searchModel, setSearchModel] = useState(false);
 
   const prefersDarkMode = useMediaQuery('(prefers-color-scheme: dark)');
@@ -147,14 +149,18 @@ const App = () => {
     const cleanedSearch = search.replace(/\//gmi, "%2F")
     const data = !page
       ? (await axios.get(`http://localhost:8080/api/v1/cars/getImages/${cleanedSearch} ${vClass}`)).data.links
-      : (await axios.get(`https://www.googleapis.com/customsearch/v1?key=AIzaSyAHrxG0tVCWYxuVCEr687KG-V9bLNWK0LA&cx=013031014986252904024:vnjtgx5lwxi&q=${search} ${vClass}&searchType=image&start=${pages}`)).data.items.map(({ link }: { link: string }) => link)
+      : (await axios.get(`https://www.googleapis.com/customsearch/v1?key=AIzaSyB4GnoaTU8CUnpaKNDslwJi9lma-8kCTho&cx=013031014986252904024:vnjtgx5lwxi&q=${search} ${vClass}&searchType=image&start=${pages}`)).data.items.map(({ link }: { link: string }) => link)
     return data
   }, [car, page, pages, search]);
 
   const updateEntry = async () => {
     try {
       if (!gameData.length) return;
-      await axios.post(`http://localhost:8080/api/v1/cars/${id}`, gameData, {
+      const data = classDesc !== '' ? [ ...gameData, {[classKey]: classDesc} ] : gameData;
+      await axios.post(
+        `http://localhost:8080/api/v1/cars/${car.index}`,
+        data,
+        {
         headers: {
           'content-type': 'application/json',
         },
@@ -162,21 +168,22 @@ const App = () => {
     } catch (err) {
       // Eat error
     } finally {
-      console.log('No game data', !gameData.length);
       setGameData([]);
       setId((prev) => (prev ?? 0) + 1)
       setPages(0);
+      setPage(true);
     }
   }
 
   useEffect(() => {
     if (!car) return;
     setSearch(`${car.year} ${car.make} ${car.model} ${getClass()}`)
+    setClassDesc('');
   }, [car]);
 
   return (
     <ThemeProvider theme={theme}>
-      <Paper sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'fixed', left: 0, top: 0, width: '100%' }}>
+      <Paper sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
           <Box sx={{ width: '100%', mr: 1 }}>
             <LinearProgress variant="determinate" value={(id / entries) * 100}/>
@@ -191,6 +198,20 @@ const App = () => {
           onChange={(e) => setSearch(e.target.value)}
           sx={{ width: '100%',textAlign: 'center', mt: 3, zIndex: 99999 }}
         />
+        <Grid sx={{ display: 'flex', width: '100%', mx: 1 }}>
+          <TextField
+            label="additionInfo"
+            value={classKey}
+            onChange={(e) => setClassKey(e.target.value)}
+            sx={{ width: '100%',textAlign: 'center', mt: 3, zIndex: 99999 }}
+          />
+          <TextField
+            label="Car"
+            value={classDesc}
+            onChange={(e) => setClassDesc(e.target.value)}
+            sx={{ width: '100%',textAlign: 'center', mt: 3, zIndex: 99999 }}
+          />
+        </Grid>
       </Paper>
       <CssBaseline />
       <Card sx={{ width: "100%" }}>

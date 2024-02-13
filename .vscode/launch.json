@@ -1,0 +1,55 @@
+{
+  "configurations": [
+    {
+      "name": "Cloud Run: Run/Debug Locally",
+      "type": "cloudcode.cloudrun",
+      "request": "launch",
+      "build": {
+        "buildpacks": {
+          "path": "backend/package.json",
+          "builder": "gcr.io/buildpacks/builder:v1"
+        }
+      },
+      "image": "cardle",
+      "service": {
+        "name": "cardle",
+        "containerPort": 8080,
+        "resources": {
+          "limits": {
+            "memory": "256Mi"
+          }
+        }
+      },
+      "target": {
+        "minikube": {}
+      },
+      "watch": true,
+      "externalPortForward": 8080
+    },
+    {
+      "name": "Cloud Run: Run/Debug Locally",
+      "type": "cloudcode.cloudrun",
+      "request": "launch",
+      "build": {
+        "buildpacks": {
+          "path": "backend/package.json",
+          "builder": "gcr.io/buildpacks/builder:v1"
+        }
+      },
+      "image": "cardle",
+      "service": {
+        "name": "cardle",
+        "containerPort": 8080,
+        "resources": {
+          "limits": {
+            "memory": "256Mi"
+          }
+        }
+      },
+      "target": {
+        "minikube": {}
+      },
+      "watch": true
+    }
+  ]
+}

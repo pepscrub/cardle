@@ -1,7 +1,6 @@
-import { getPort } from '@common/utils/envConfig';
-import { app, logger } from '@src/server';
+import { app, logger } from './server';
 
-const port = getPort();
+const port = parseInt(process.env.PORT || String(8080));
 
 const server = app.listen(port, () => {
   logger.info(`Server listening on port ${port}`);

@@ -2,23 +2,24 @@ import { Nullable, ArrayOrFlat } from "./generics";
 
 export interface Car {
   _id: string;
-  make: string;
-  model: string;
-  id: string;
-  year: string;
-  index: number;
   cylinders: ArrayOrFlat<string>;
   displacement: ArrayOrFlat<string>;
   drive: ArrayOrFlat<string>;
-  engId: ArrayOrFlat<string>;
   engDesc: ArrayOrFlat<string[]>;
+  engId: ArrayOrFlat<string>;
+  forcedInduction: Nullable<ArrayOrFlat<string>>;
   fuelType: ArrayOrFlat<string>;
-  vClass: ArrayOrFlat<string>;
+  gameData: GameData[];
+  id: string;
+  index: number;
+  make: string;
+  model: string;
+  notes?: Record<'notes', string>[];
+  resetRegion: string;
   transmission: ArrayOrFlat<string>;
   transmissionDesc: Nullable<ArrayOrFlat<string>>;
-  forcedInduction: Nullable<ArrayOrFlat<string>>;
-  gameData: GameData[];
-  region: string;
+  vClass: ArrayOrFlat<string>;
+  year: string;
 }
 
 export interface GameData {

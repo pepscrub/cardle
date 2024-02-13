@@ -3,7 +3,10 @@ import { ArrayOrFlat, Car, Maybe, Nullable, Undefinable, setState } from "../../
 import { DateTime } from 'luxon';
 import usePromise from "react-use-promise";
 import axios from "axios";
-import JSConfetti from "js-confetti";
+import { NavBarContext } from "../../App";
+import { enqueueSnackbar } from "notistack";
+import { YEAR_CORRECTION } from "../constants";
+import { useConfetti } from "../../util/useConfetti";
 
 const MIN_YEAR = 1900;
 
@@ -51,35 +54,49 @@ interface Props extends PropsWithChildren {}
 
 const context = createContext<Undefinable<Context>>(undefined);
 
+const isValidUrl = (url: string) => {
+  try {
+    new URL(url);
+    return true;
+  } catch (err) {
+    return false;
+  }
+}
+
 export const CardleProvider: FC<Props> = ({
   children
 }) => {
-  /**
-   * TODO: Store data in localStorage
-   * Something like: { gameId: { gameData }}
-   * allows for replayOther days feature
-   */
   const [currentCar] = usePromise<Car>(async () => {
-    const { data } = await axios.get('/api/v1/cars/todaysGame');
-    return data;
-  }, []); // TODO: Get from basic backend
+    const storedDay = JSON.parse(localStorage.getItem('todaysGame') as string);
+    const storedDate = DateTime.now().setZone(storedDay?.resetRegion).diff(DateTime.fromISO(storedDay?.date)).as('hours');
+    if (storedDate && storedDate < 24) return Promise.resolve(storedDay.todaysGame);
+
+    const { data } = await axios.get<Car>('/api/v1/cars/todaysGame');
+    const gameData = data.gameData.filter((game) => !isValidUrl(game.imgUrl));
+    const todaysGame = { ...data, gameData };
+    localStorage.setItem('todaysGame', JSON.stringify({ todaysGame, date: DateTime.now().setZone(currentCar?.resetRegion).endOf('day').toISO() }))
+    return todaysGame;
+  }, []);
   const currentYear = DateTime.now().year;
   const defaultYear = Math.round(Math.random() * (currentYear - MIN_YEAR + 1) + MIN_YEAR);
-  const generateHint = (hint: Maybe<ArrayOrFlat<string | number>>, key: string) => hint && ({ [key]: typeof hint === 'object' ? hint.filter((val) => !!val).join(', ') : String(hint) })
+  const generateHint = (hint: Maybe<ArrayOrFlat<string | number>>, key: string) => hint && ({ [key]: typeof hint === 'object' ? hint.filter((val) => !!val).join(', ') : String(hint) });
+  const jsConfetti = useConfetti();
   const [guess, setGuess] = useState('');
   const [attempts, setAttempts] = useState<string[]>([]);
-  const [model, setModel] = useState('');
-  const [make, setMake] = useState('');
+  const [model, setModel] = useState(attempts[attempts.length - 1]?.split(' ')[1] ?? '');
+  const [make, setMake] = useState(attempts[attempts.length - 1]?.split(' ').slice(2).join(' ') ?? '');
   const [win, setWin] = useState(false);
   const [inProgress, setInProgress] = useState(true);
   const [step, setStep] = useState<number>(attempts.length);
   const [winStep, setWinStep] = useState<number>();
-  const [hardMode, setHardMode] = useState(Boolean(localStorage.getItem('hardMode')) ?? false);
+  const [hardMode, setHardMode] = useState(localStorage.getItem('hardMode') === 'true');
   const stats: Stats = JSON.parse(localStorage.getItem('stats') as string ?? JSON.stringify({ currentStreak: 0, maxStreak: 0 }))
   const gameId = `game_${String(currentCar?.index)}`
   const [days, setDays] = useState<number[]>([]);
+  const [year, setYear] = useState(Number(attempts[attempts.length - 1]?.split(' ')[0] ?? `${defaultYear}`));
+
+  const statsOpen = useContext(NavBarContext);
   
-  const [year, setYear] = useState(defaultYear);
   const hints = ({
     ...generateHint(currentCar?.cylinders, 'cylinders'),
     ...generateHint(currentCar?.drive, 'driveTrain'),
@@ -93,19 +110,26 @@ export const CardleProvider: FC<Props> = ({
   const guessAttempt = async (skipped?: boolean) => {
     if (!currentCar || !inProgress || win) return;
     const carYear =  Number(currentCar.year)
-    const currentMake = make.toLowerCase().includes(currentCar.make.toLowerCase());
-    const currentModel = model.toLowerCase().includes(currentCar.model.toLowerCase())
-    const currentYear = hardMode ? year === carYear : year >= carYear - 2 && year <= carYear + 2;
-    
+    const currentMake = hardMode
+      ? make?.toLowerCase() === currentCar.make.toLowerCase()
+      : currentCar.make.toLowerCase().includes(make?.toLowerCase())
+      const currentModel = hardMode
+      ? model?.toLowerCase() === currentCar.model.toLowerCase()
+      : currentCar.model.toLowerCase().includes(model?.toLocaleLowerCase())
+      const currentYear = hardMode ? year === carYear : year >= carYear - YEAR_CORRECTION && year <= carYear + YEAR_CORRECTION;
+  
+    const isWin = currentMake && currentModel && currentYear;
+    const guess = `${year}_${make}_${model}`;
+
     localStorage.setItem(gameId, JSON.stringify({
-      attempts: [...attempts, skipped ? 'skipped' : `${year} ${make} ${model}`],
+      attempts: [...attempts, skipped ? 'skipped' : guess],
       day: DateTime.now().startOf('day'),
-      inProgress: attempts.length + 1 !== currentCar.gameData.length,
-      win,
+      inProgress: attempts.length + 1 !== currentCar.gameData.length && !isWin,
+      win: isWin,
     }));
 
     if (!make || !model) {
-      setAttempts((attempt) => [...attempt, skipped ? 'skipped' : `${year} ${make} ${model}`]);
+      setAttempts((attempt) => [...attempt, skipped ? 'skipped' : guess]);
       if (attempts.length + 1 === currentCar.gameData.length) {
         setInProgress(false);
         setWin(false);
@@ -115,7 +139,7 @@ export const CardleProvider: FC<Props> = ({
     }
     
     setValidAnswers({ make: currentMake, model: currentModel, year: currentYear });
-    setAttempts((attempt) => [...attempt, `${year} ${make} ${model}`]);
+    setAttempts((attempt) => [...attempt, guess]);
 
     if (currentMake) setMake(currentCar.make)
     if (currentModel) setModel(currentCar.model);
@@ -139,23 +163,41 @@ export const CardleProvider: FC<Props> = ({
   }
 
   useEffect(() => {
+    if (attempts.every((attempt) => attempt === 'skipped') && attempts.length === currentCar?.gameData.length) {
+      enqueueSnackbar('Skip Hero', { variant: 'info', })
+      jsConfetti?.addConfetti({ emojis: ['⏩'] })
+      return;
+    }
     if (win) return;
     setStep(attempts.length)
   }, [attempts]);
 
   useEffect(() => {
-    if (!win || !currentCar || !days.length) return;
+    if (!win || !currentCar) return;
     setWinStep(step);
     setInProgress(false);
     localStorage.setItem(gameId, JSON.stringify({ attempts: attempts, win, inProgress: false, winStep, day: DateTime.now().startOf('day'), }));
     const longestStreak = stats.maxStreak < stats.currentStreak + 1 ? stats.currentStreak + 1 : stats.maxStreak;
-    // setStats(JSON.stringify({ maxStreak: longestStreak, currentStreak: JSON.parse(stats).currentStreak + 1 }))
-    const jsConfetti = new JSConfetti();
-    jsConfetti.addConfetti();
-    if (Math.max(...days) === 0) return
+    switch(attempts.length) {
+      case 0: {
+        jsConfetti?.addConfetti({ emojis: ['🤔', '🤥'] });
+        enqueueSnackbar('You cheated didn\'t you', { variant: 'warning' });
+        break;
+      }
+      case 1: {
+        jsConfetti?.addConfetti({ emojis: ['💯', '🏆', '✨', '🏅', '☄️'] });
+        break;
+      }
+      default: {
+        jsConfetti?.addConfetti();
+        break;
+      }
+    }
+    if (!days.length || Math.max(...days) === 0) return
     localStorage.setItem('stats', JSON.stringify({ maxStreak: longestStreak, currentStreak: stats.currentStreak + 1 }))
   }, [win, days]);
 
+  // Calculate stats
   useEffect(() => {
     const tempDays = [];
     for (let i = 0; i < localStorage.length; i++){
@@ -180,6 +222,11 @@ export const CardleProvider: FC<Props> = ({
     setWinStep(storedGame.winStep);
     setInProgress(storedGame.inProgress);
   }, [currentCar]);
+
+  useEffect(() => {
+    if (inProgress) return;
+    setTimeout(() => statsOpen.setOpen(), 1000);
+  }, [inProgress]);
 
   return (
     <context.Provider

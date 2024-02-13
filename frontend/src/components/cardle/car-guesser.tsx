@@ -1,13 +1,17 @@
-import { Box, Collapse, Container, TextField, Typography, Slider, Autocomplete, CircularProgress, Button, CardMedia, Card, CardContent, CardActions, Divider, Grid, Tooltip, useTheme } from "@mui/material";
-import { FC, useState } from "react";
+import { Box, Collapse, Container, TextField, Typography, Slider, Autocomplete, Button, CardMedia, Card, CardContent, CardActions, Divider, Grid, Tooltip, useTheme, Skeleton } from "@mui/material";
+import { FC, useEffect, useState } from "react";
 import { useCardle } from "./controller";
 import { useTranslation } from "react-i18next";
 import { BlurImage } from "../image";
 import { DateTime } from "luxon";
 import usePromise from "react-use-promise";
 import axios from "axios";
-import { Guesses } from "./guess";
+import { getGuessColor, yearColor } from "./guess";
 import { ShareResults } from "./share-results";
+import { SPECIAL_SPLIT_CHAR } from "../constants";
+import { BottomNavResults } from "./nav-results";
+import { useScreen } from "../../hooks/breakpoints";
+import { GoogleAdBanner } from "./ads";
 
 const modelsCacheMap: Map<string, Promise<string[]>> = new Map();
 
@@ -31,6 +35,7 @@ export const Cardle: FC = () => {
     attempts,
     currentCar,
     guessAttempt,
+    hardMode,
     hints,
     inProgress,
     make,
@@ -46,11 +51,15 @@ export const Cardle: FC = () => {
     winStep,
     year,
   } = useCardle();
-  const theme = useTheme();
   const { t } = useTranslation();
+  const isSmallScreen = useScreen();
+  const isLargeScreen = useScreen('xl');
   const gameData = currentCar?.gameData;
+  const { palette } = useTheme();
+  const [maxGuesses, setMaxGuesses] = useState(9);
+  const [guessedYear, guessedMake, guessedModel] = attempts[attempts.length - 1]?.split(SPECIAL_SPLIT_CHAR) ?? ['', '', '']
   const [makes, , makesState] = usePromise<string[]>(async () => {
-    const storedMakes = JSON.parse(localStorage.getItem('makes') as string);
+    const storedMakes = JSON.parse(localStorage.getItem('makes') as string)?.sort();
     if (storedMakes) return Promise.resolve(storedMakes);
     const { data } = await axios.get('/api/v1/cars/makes');
     localStorage.setItem('makes', JSON.stringify(data));
@@ -58,13 +67,14 @@ export const Cardle: FC = () => {
   }, []);
 
   const [models, , modelsState] = usePromise<string[]>(async () => {
-    if (!make) return Promise.resolve();
-    const getModelsCacheMap = await modelsCacheMap.get(make);
+    const makeCheck = make === '' ? (guessedMake === '' ? null : guessedMake) : make;
+    if (!makeCheck) return Promise.resolve();
+    const getModelsCacheMap = await modelsCacheMap.get(makeCheck);
     if (getModelsCacheMap) return Promise.resolve(getModelsCacheMap);
-    const { data } = await axios.get(`/api/v1/cars/models/${make}`);
-    if (!getModelsCacheMap) modelsCacheMap.set(make, data);
+    const { data } = await axios.get(`/api/v1/cars/models/${makeCheck}`);
+    if (!getModelsCacheMap) modelsCacheMap.set(makeCheck, data);
     return data
-  }, [make]);
+  }, [make, guessedMake]);
 
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -77,25 +87,122 @@ export const Cardle: FC = () => {
   const marks = Array.from({ length: (gameData?.length ?? 0) + 1 }).map((_, i) => ({ value: i, label: i + 1 }));
   const formatLabel = (value: number) => marks.findIndex((mark) => mark.value === value) + 1;
 
-  
-  if (!currentCar || !gameData) return <CircularProgress />
+  useEffect(() => {
+    if (!gameData) return;
+    setMaxGuesses(gameData.length - 1)
+  }, [gameData]);
 
-  const maxGuesses = gameData.length - 1;
+  useEffect(() => {
+    setMake(guessedMake);
+    setModel(guessedModel);
+  // Putting the setFunctions does functionality nothing
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [guessedMake, guessedModel]);
+
+  if (!currentCar || !gameData) return (
+    <Container sx={{ alignItems: 'stretch', display: 'flex', flexDirection: 'column', mt: 10, }}>
+      <Card
+        sx={{
+          boxShadow: 5,
+          pb: 1,
+          borderColor: ({ palette }) => win
+            ? palette.success.main
+            : inProgress
+              ? palette.divider
+              : palette.error.main
+        }}
+        variant="outlined"
+      >
+        <CardMedia>
+          <Box sx={{ height: '40rem', position: 'relative' }} />
+          <Box sx={{ p: 1.5, px: 4 }}>
+            <Skeleton width="100%" height="3rem" />
+          </Box>
+        </CardMedia>
+        <Box sx={{ px: 4 }}>
+          <CardContent sx={{ p: 0 }}>
+            <Box sx={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Typography gutterBottom variant="overline">{t('branding.cardle')}</Typography>
+              <Skeleton width="8rem" />
+            </Box>
+            <Divider />
+            <Grid container >
+              {
+                Array.from({ length: 4 }).map((_, i) => (
+                  <Grid
+                    key={`loader-hints-${i}`}
+                    item
+                    xs={6}
+                    sm={6}
+                    sx={{ display: 'flex', flexDirection: 'column', alignItems: i % 2 ? 'flex-end' : 'flex-start' }}
+                  >
+                    <Skeleton width="6rem" height="3rem" />
+                    <Skeleton width="6rem" height="3rem" />
+                  </Grid>
+                ))
+              }
+            </Grid>
+            <Divider />
+            <Skeleton width="100%" height="3rem" />
+            <Box sx={{ display: 'flex', mt: 2 }}>
+              <Skeleton width="50%" height="5rem" sx={{ mr: 0.25 }} />
+              <Skeleton width="50%" height="5rem" sx={{ ml: 0.25 }} />
+            </Box>
+          </CardContent>
+          <CardActions sx={{ float: 'right' }}>
+            <Collapse in={inProgress}>
+              <Button disabled color="secondary">{t('game.skip')}</Button>
+              <Button disabled size="large">{t('game.guess')}</Button>
+            </Collapse>
+          </CardActions>
+        </Box>
+      </Card>
+      <Divider />
+    </Container>
+  );
 
   return (
-    <Container sx={{ alignItems: 'stretch', display: 'flex', flexDirection: 'column', mt: 10 }}>
-      <Card sx={{ boxShadow: 5, pb: 1 }}>
-        <CardMedia sx={{ backgroundColor: theme.palette.action.hover, pt: 2 }}>
+    <Container
+      sx={{
+        alignItems: 'stretch',
+        display: 'flex',
+        flexDirection: 'column',
+        mt: 9,
+        overflow: isLargeScreen ? 'show' : 'hidden',
+        position: 'relative',
+      }}
+    
+    >
+      <Card
+        sx={{
+          boxShadow: 5,
+          pb: 1,
+          borderColor: ({ palette }) => win
+            ? palette.success.main
+            : inProgress
+              ? palette.divider
+              : palette.error.main
+        }}
+        variant="outlined"
+      >
+        <Collapse in={!inProgress} sx={{ px: 4, pt: 1, textAlign: 'center' }} unmountOnExit>
+          <Typography variant="h2" sx={{ textTransform: 'capitalize' }}>{currentCar?.year} - {currentCar?.make} {currentCar?.model}</Typography>
+          { currentCar?.notes?.map(({ notes }, i) => <Typography key={`note-${i}`} variant="body1">{notes}</Typography>) }
+          <Divider />
+        </Collapse>
+        <BottomNavResults />
+        <CardMedia sx={{ pt: 2 }}>
           <BlurImage
             blurRadius={50}
             clearArea={gameData}
-            currentAttempt={step}          
-            imageUrl={gameData[step >= maxGuesses ? maxGuesses : step].imgUrl}
+            currentAttempt={step}
+            imageUrls={gameData.map(({ imgUrl }) => imgUrl)}
+            maxGuesses={maxGuesses}
+            isLastGuess={step >= maxGuesses}
             skipBlurring={win || !inProgress}
           />
-          <Box sx={{ p: 1.5 }}>
+          <Box sx={{ p: 1.5, px: 4 }}>
             <Slider
-              color={win ? "success" : "error"}
               marks={marks}
               max={maxGuesses}
               min={0}
@@ -104,27 +211,35 @@ export const Cardle: FC = () => {
               value={step}
               valueLabelDisplay="auto"
               valueLabelFormat={formatLabel}
+              color={
+                win
+                  ? 'success'
+                  : !inProgress
+                    ? 'error'
+                    : attempts.length <= Math.floor(maxGuesses * .5)
+                      ? 'primary'
+                      : attempts.length >= maxGuesses - 1
+                        ? 'error'
+                        : 'warning' 
+              }
             />
           </Box>
         </CardMedia>
         <Box sx={{ px: 1 }}>
           <CardContent>
             <Box sx={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <Typography gutterBottom variant="overline">{t('branding.cardle')}</Typography>
-              <Typography variant="overline">{t(win ? 'game.guessed' : 'game.guess', { count: winStep ? (winStep === 0 ? winStep : winStep) : maxGuesses - (attempts.length - 1) })}</Typography>
+              <Typography gutterBottom variant="overline" sx={{ m: 0 }}>{t('branding.cardle')}</Typography>
+              <Typography variant="overline">{!isSmallScreen ? maxGuesses - (attempts.length - 1) : t(win ? 'game.guessed' : 'game.guess', { count: win ? (winStep === 0 ? 1 : winStep) : maxGuesses - (attempts.length - 1) })}</Typography>
             </Box>
-            <Collapse in={!inProgress}>
-              <Typography variant="h2" sx={{ textTransform: 'capitalize' }}>{currentCar?.year} - {currentCar?.make} {currentCar?.model}</Typography>
-            </Collapse>
 
             <Divider />
-            <Grid container>
+            <Grid container sx={{ flexDirection: { xs: 'column', md: 'row' }, alignItems: { xs: 'center', md: 'inherit' } }}>
               {Object.entries(hints).map(([key, value], i) => <Grid
                 key={`${value}-${i}`}
                 item
-                xs={6}
-                sm={6}
-                sx={{ display: 'flex', flexDirection: 'column', alignItems: i % 2 ? 'flex-end' : 'flex-start' }}
+                xs={12}
+                md={6}
+                sx={{ display: 'flex', flexDirection: 'column', alignItems: { xs: 'center', md: i % 2 ? 'flex-end' : 'flex-start' } }}
               >
                   <RevealHint hint={`${value}`} label={t(`game.hint.${key}`)} />
                 </Grid>
@@ -134,7 +249,7 @@ export const Cardle: FC = () => {
             <Divider />
 
             {/* GUESS Controllers */}
-            <Collapse in={!win && inProgress} sx={{ width: '100%' }} component="search">
+            <Collapse in={!win && inProgress} sx={{ width: '100%' }} component="search" unmountOnExit>
               <Slider
                 marks
                 max={DateTime.now().year}
@@ -142,38 +257,40 @@ export const Cardle: FC = () => {
                 onChange={(_, value) => typeof value === 'number' && setYear(value)}
                 value={year}
                 valueLabelDisplay="auto"
-                color={validAnswers.year === null ? 'primary' : validAnswers.year ? 'success' : 'error'}
+                sx={{
+                  color: yearColor(Number(guessedYear ?? validAnswers.year), hardMode, palette, Number(currentCar.year ?? '1950')),
+                }}
               />
-              <Box sx={{ mt: 1 }}>
+              <Box sx={{ mt: 1, display: 'flex' }}>
                 {<Autocomplete
+                  loading={makesState === 'pending'}
+                  defaultValue={guessedMake === '' ? null : guessedMake}
                   options={makes ?? []}
+                  sx={{ width: '100%', mr: 0.25 }}
                   renderInput={(params) => (
                     <TextField
                       {...params}
-                      color={validAnswers.model === null ? 'primary' : validAnswers.model ? 'success' : 'error'}
-                      label="Model"
+                      label={t('game.make')}
+                      sx={{ '.MuiOutlinedInput-notchedOutline': {borderColor: getGuessColor(guessedMake ?? validAnswers?.make, hardMode, palette, currentCar?.make)} }}
                     />
                   )}
                   onChange={(_e, value) => setMake(!value ? '' : value)}
                 />
                 }
-                {!makes && makesState === 'pending' && <CircularProgress />}
-              </Box>
-              <Box sx={{ mt: 1 }}>
-                  <Autocomplete
-                    disabled={!models && make !== ''}
-                    options={models ?? []}
-                    renderInput={(params) => (
-                      <TextField
-                        {...params}
-                        color={validAnswers.model === null ? 'primary' : validAnswers.model ? 'success' : 'error'}
-                        label="Model"
-                      />
-                    )}
-                    onChange={(_e, value) => value && setModel(value)}
-                    color={validAnswers.make === null ? 'primary' : validAnswers.make ? 'success' : 'error'}
-                  />
-                  {!models && modelsState === 'pending' && <CircularProgress />}
+                <Autocomplete
+                  loading={modelsState === 'pending'}
+                  defaultValue={guessedModel === '' ? null : guessedModel}
+                  options={models ?? []}
+                  sx={{ width: '100%', ml: 0.25 }}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label={t('game.model')}
+                      sx={{ '.MuiOutlinedInput-notchedOutline': { borderColor: getGuessColor(guessedModel ?? validAnswers?.model, hardMode, palette, currentCar?.model) } }}
+                    />
+                  )}
+                  onChange={(_e, value) => value && setModel(value)}
+                />
               </Box>
             </Collapse>
             <Collapse in={!inProgress} sx={{ mt: 1 }}>
@@ -181,14 +298,14 @@ export const Cardle: FC = () => {
             </Collapse>
           </CardContent>
           <CardActions sx={{ float: 'right' }}>
-            <Collapse in={inProgress}>
+            <Collapse in={inProgress} unmountOnExit>
               <Button onClick={() => guessAttempt(true)} color="secondary">{t('game.skip')}</Button>
               <Button onClick={() => guessAttempt()} disabled={make === '' && model === ''} size="large">{t('game.guess')}</Button>
             </Collapse>
           </CardActions>
-          <Guesses />
         </Box>
       </Card>
+      <GoogleAdBanner />
     </Container>
   )
 }

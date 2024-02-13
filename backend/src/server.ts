@@ -7,12 +7,12 @@ import { MongoClient, ServerApiVersion } from 'mongodb';
 import path from 'path';
 import { pino } from 'pino';
 
-import compressFilter from '@common/middleware/compressFilter';
-import errorHandler from '@common/middleware/errorHandler';
-import rateLimiter from '@common/middleware/rateLimiter';
-import requestLogger from '@common/middleware/requestLogger';
+import compressFilter from './common/middleware/compressFilter';
+import errorHandler from './common/middleware/errorHandler';
+import rateLimiter from './common/middleware/rateLimiter';
+import requestLogger from './common/middleware/requestLogger';
 // import { getCorsOrigin } from '@common/utils/envConfig';
-import { healthCheckRouter } from '@modules/healthCheck/healthCheckRoutes';
+import { healthCheckRouter } from './modules/healthCheck/healthCheckRoutes';
 import { Car } from './types/cars';
 import schedule from 'node-schedule';
 import { apiRouter } from './api/v1';
@@ -25,8 +25,11 @@ dotenv.config({
 const logger = pino({ name: 'server start' });
 const app: Express = express();
 // const corsOrigin = getCorsOrigin();
+app.enable('trust proxy');
 
 // Middlewares
+app.use(express.json())
+app.use(express.static(path.join(__dirname, 'frontend')))
 app.use(cors({ origin: true, credentials: true }));
 app.use(helmet());
 app.use(compression({ filter: compressFilter }));
@@ -42,6 +45,7 @@ app.use('/api/v1', apiRouter);
 
 // Error handlers
 app.use(errorHandler());
+
 
 
 // Connecting to mongoDB server
@@ -80,7 +84,7 @@ export const setGameDay = async (): Promise<Car | undefined> => {
     logger.info('Daily updated completed:', randomDocument);
     return randomDocument;
   }catch (error) {
-    if ((error as Error).message !== 'Game is already set') logger.error('Error during daily update:', error);
+    // Eat error
   }
   return undefined;
 }

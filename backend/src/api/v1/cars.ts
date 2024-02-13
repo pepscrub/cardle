@@ -1,18 +1,28 @@
-import { collection, gameCollection, setGameDay } from "@src/server";
+import { collection, gameCollection, setGameDay } from "../../server";
 import express from "express";
 import { randomUUID } from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import axios from "axios";
 import * as cheerio from 'cheerio';
-import { Car } from "@src/types/cars";
+import { Car } from "../../types/cars";
 
 const router = express.Router();
+
+const isValidUrl = (url: string) => {
+  try {
+    new URL(url);
+    return true;
+  } catch (err) {
+    return false;
+  }
+}
 
 router.get('/makes', async (_req, res) => {
   const data = await collection.aggregate([
     { $group: { _id: "$make", data: { $first: "$$ROOT" } } },
-    { $replaceRoot: { newRoot: "$data" } }
+    { $replaceRoot: { newRoot: "$data" } },
+    { $sort: { make: 1 } },
   ]).toArray();
   res.send(data.map(({make}) => make));
 })
@@ -46,7 +56,8 @@ router.get('/models/:make', async (req, res) => {
   const data = await collection.aggregate([
     { $match: { make: req.params.make, } },
     { $group: { _id: "$model", make: { $first: "$model" }, data: { $first: "$$ROOT" } } },
-    { $replaceRoot: { newRoot: { $mergeObjects: ["$data", { make: "$make" }] } } }
+    { $replaceRoot: { newRoot: { $mergeObjects: ["$data", { make: "$make" }] } } },
+    { $sort: { model: 1 } },
   ]).toArray();
   res.send(data.map(({make}) => make));
 })
@@ -57,10 +68,16 @@ router.get('/todaysGame', async (_req, res) => {
   const todaysGame = await gameCollection.findOne({ day: { "$gte": start, "$lt": end } });
   if (!todaysGame) {
     const game = await setGameDay();
-    return res.send(game);
+    return res.send({
+      ...game,
+      resetRegion: Intl.DateTimeFormat().resolvedOptions().timeZone
+    });
   }
   const randomEntry = await collection.findOne({ index: todaysGame?.index });
-  return res.send({ ...randomEntry, resetRegion: Intl.DateTimeFormat().resolvedOptions().timeZone });
+  return res.send({
+    ...randomEntry,
+    resetRegion: Intl.DateTimeFormat().resolvedOptions().timeZone
+  });
 })
 
 router.delete('/:index', async (req, res) => {
@@ -77,50 +94,58 @@ router.delete('/:index', async (req, res) => {
 })
 
 router.get('/:id', async (req, res) => {
-  const id = req.params.id;
-  const data = await collection.find({ index: Number(id) }).toArray();
+  const count = await collection.countDocuments();
+  const randomDoc = Math.floor(Math.random() * (count - 1) + 1)
+  const data = await collection.find({ index: randomDoc, gameData: { "$exists": false } }).toArray();
+  console.log(data);
   res.send(data);
 })
 
 router.post('/:id', async (req, res) => {
   const index = req.params.id;
-  const requestBody = req.body;
+  const requestBody = req.body.filter((item) => 'x' in item);
+  const notes = req.body.filter((item) => !('x' in item));
 
   if (!requestBody || !requestBody.length) return res.send({ status: 'failed', error: 'no request body' });
 
   // Function to download and save the file
   const downloadAndSaveFile = async (url: string): Promise<string> => {
     const updatedUrl = url.replace(/\?.*/gmi, '');
-    const fileExtension = path.extname(updatedUrl);
+    const fileExtension = path.extname(updatedUrl) === '' ? '.jpg' : path.extname(updatedUrl);
     const filename = randomUUID() + fileExtension;
-    const filePath = path.join('./imgs/', filename);
-    console.log(updatedUrl);
-    await axios({
-      url: updatedUrl,
-      responseType: 'stream',
-      method: 'GET',
-    }).then(
-      response =>
-        new Promise((resolve, reject) => {
-          response.data
-            .pipe(fs.createWriteStream(filePath))
-            .on('finish', resolve)
-            .on('error', (e: Error) => reject(e));
-        }),
-    );
+    
+    console.log(`getting ${filename}`);
+    const response = await axios({
+      method: 'get',
+      url,
+      responseType: 'arraybuffer'
+    });
+
+    if (response.status !== 200) throw new Error('Cant download image');
+
+    console.log(`downloaded to:  ./imgs/${filename}`);
+    fs.writeFileSync(`./imgs/${filename}`, Buffer.from(response.data));
+
+
+
     return `/imgs/${filename}`;
   };
 
   // Update imageUrl and download files
+  
   for (const index of requestBody.keys()) {
     try {
-      requestBody[index].imgUrl = await downloadAndSaveFile(requestBody[index].imgUrl);
+      const newUrl = await downloadAndSaveFile(requestBody[index].imgUrl);
+      if (isValidUrl(newUrl)) throw new Error('FUCKING CHRIST')
+      requestBody[index].imgUrl = newUrl;
     } catch (err) {
       requestBody.slice(index, 1);
     }
   }
-
-  const data = await collection.updateOne({ index: Number(index) }, { "$set": { gameData: requestBody } }, { upsert: true });
+  
+  const data = await collection
+    .updateOne({ index: Number(index) }, { "$set": { gameData: requestBody, notes } }, { upsert: true })
+    .catch(() => res.send({ status: 'failed', message: 'Could not add to database' }));
   res.send({ status: 'success', data });
   return;
 })

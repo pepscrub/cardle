@@ -1,13 +1,14 @@
 import { FC, useContext, useEffect, useState } from "react";
 import { useCardle } from "./controller"
-import { Box, Button, Collapse, Dialog, DialogTitle, Divider, Grid, IconButton, LinearProgress, LinearProgressProps, Typography } from "@mui/material";
+import { Box, Button, Collapse, Dialog, DialogTitle, Divider, Grid, IconButton, LinearProgress, LinearProgressProps, Typography, useTheme } from "@mui/material";
 import { useTranslation } from "react-i18next";
-import { Undefinable } from "../../types";
 import ShareIcon from '@mui/icons-material/Share';
 import { useSnackbar } from 'notistack';
 import { NavBarContext } from "../../App";
 import { DateTime } from "luxon";
 import CloseIcon from '@mui/icons-material/Close';
+import { Guesses, getGuessColor, yearColor } from "./guess";
+import { SPECIAL_SPLIT_CHAR } from "../constants";
 
 interface GameResults {
   attempts: string[];
@@ -58,11 +59,20 @@ export const ShareResults: FC = () => {
   const [winRate, setWinRate] = useState(0);
   const [winDisruptions, setWinDisruptions] = useState<Record<number, number>>({});
   const largestValue = Math.max(...Object.values(winDisruptions)) * 2;
-  const { attempts, currentCar, inProgress, stats } = useCardle();
+  const { attempts, currentCar, inProgress, stats, hardMode } = useCardle();
   const { t } = useTranslation();
   const { enqueueSnackbar } = useSnackbar();
+  const { palette } = useTheme();
   const statsOpen = useContext(NavBarContext);
-  const year = Number(currentCar?.year) ?? 1984;
+  const currentYear = Number(currentCar?.year) ?? 1984;
+
+  const switchToEmojis = (value: string): string => {
+    if (palette.success.main === value) return EmojiResults.correct;
+    if (palette.warning.main === value) return EmojiResults.close;
+    if (palette.error.main === value) return EmojiResults.incorrect;
+    return EmojiResults.skipped;
+    
+  }
 
   useEffect(() => {
     const arr = [];
@@ -87,31 +97,47 @@ export const ShareResults: FC = () => {
     values
       .map((number) => tempObject[number] = (tempObject[number] ?? 0) + 1)
     setWinDisruptions(tempObject);
-    setWinRate(gamesWon / games.length * 100)
+    
+    if (gamesWon && games.length) setWinRate(gamesWon / games.length * 100)
   }, [games, inProgress]);
 
-  const results = attempts.map((attempt) => attempt === 'skipped' ? attempt : attempt.split(' '));
-
-  const getColor = (value: Undefinable<string>, check: string): string => value === check
-    ? EmojiResults.correct
-    : EmojiResults.incorrect;
-
-  const yearColor = (attemptYear: number) => attemptYear >= year - 10 && attemptYear <= year + 10  && year !== attemptYear
-  ? EmojiResults.close
-  : year === attemptYear
-    ? EmojiResults.correct
-    : EmojiResults.incorrect;
+  const results = attempts.map((attempt) => attempt === 'skipped' ? attempt : attempt.split(SPECIAL_SPLIT_CHAR));
 
   const emojis = results.map((value) => {
     if (value === 'skipped') return Array.from({ length: 3 }).map(() => EmojiResults.skipped);
     const [year, make, model] = value;
-    return [yearColor(Number(year)), getColor(currentCar?.make, make), getColor(currentCar?.model, model)];
+    return [
+      switchToEmojis(
+        yearColor(
+          currentYear,
+          hardMode,
+          palette,
+          Number(year)
+        )
+      ),
+      switchToEmojis(
+        getGuessColor(
+          make,
+          hardMode,
+          palette,
+          currentCar?.make
+        )
+      ),
+      switchToEmojis(
+        getGuessColor(
+          model,
+          hardMode,
+          palette,
+          currentCar?.model
+        )
+      )
+    ];
   })
 
   const text = emojis.map((value) => value.join('')).join('\n');
   
   const onClick = () => {
-    const clipboardText = `Cardle results for ${DateTime.now().toLocaleString()} ${attempts.length}/${currentCar?.gameData.length}:\n\n${text}`
+    const clipboardText = `${hardMode ? 'Hard' : 'Easy'} Cardle results for ${DateTime.now().toLocaleString()}, ${attempts.length}/${currentCar?.gameData.length}:\n\n${text}`
     try {
       navigator.clipboard.writeText(clipboardText);
       enqueueSnackbar(t('stats.copyToClipboard.success'), { variant: "success" })
@@ -126,9 +152,10 @@ export const ShareResults: FC = () => {
       <Dialog
         onClose={() => statsOpen.close()}
         open={statsOpen.open}
+        sx={{ overflowX: 'hidden' }}
       >
         <DialogTitle>
-          <Typography variant="h2">{t('stats.title')}</Typography>
+          <Typography variant="h2" component="span">{t('stats.title')}</Typography>
         </DialogTitle>
         <IconButton
           aria-label="close"
@@ -145,7 +172,7 @@ export const ShareResults: FC = () => {
         <Divider />
         <Grid sx={{ display: 'flex' }}>
           <StatItem title={t('stats.gamesPlayed')} value={String(games.length)} />
-          <StatItem title={t('stats.won')} value={t('stats.winRate', { winRate })} />
+          <StatItem title={t('stats.won')} value={t('stats.winRate', { winRate: Math.floor(winRate) })} />
           <StatItem title={t('stats.current_streak')} value={String(stats.currentStreak)} />
           <StatItem title={t('stats.longest_streak')} value={String(stats.maxStreak)} />
         </Grid>
@@ -163,6 +190,8 @@ export const ShareResults: FC = () => {
             ))
           }
         </Box>
+        <Divider />
+        <Guesses />
         <Collapse in={!inProgress} sx={{ my: 2, '.MuiCollapse-wrapperInner': { display: 'flex', justifyContent: 'center' } }}>
           <Button onClick={onClick}>
             {t('stats.shareYourResults')}
