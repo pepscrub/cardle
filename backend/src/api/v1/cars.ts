@@ -55,6 +55,7 @@ router.get('/todaysGame', async (_req, res) => {
   });
 })
 
+// Remove endpoints once all data has images associated
 if (process.env.NODE_ENVIRONMENT == 'dev') {
   router.get('/getImages/:query', async (req, res) => {
     const query = req.params.query
