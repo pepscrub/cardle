@@ -1,14 +1,14 @@
 /* eslint-disable react-hooks/rules-of-hooks */
-import { Card, CssBaseline, Fab, ThemeProvider, Tooltip, Typography, createTheme, Paper, useMediaQuery, LinearProgress, Box, TextField, Grid } from "@mui/material";
-import axios from "axios"
-import { Dispatch, FC, SetStateAction, useEffect, useMemo, useRef, useState } from "react";
-import usePromise from "react-use-promise"
-import useLocalStorage from "use-local-storage";
 import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
+import DeleteIcon from '@mui/icons-material/Delete';
+import DirectionsCarIcon from '@mui/icons-material/DirectionsCar';
 import ImageIcon from '@mui/icons-material/Image';
 import InfoIcon from '@mui/icons-material/Info';
-import DirectionsCarIcon from '@mui/icons-material/DirectionsCar';
-import DeleteIcon from '@mui/icons-material/Delete';
+import { Box, Card, CssBaseline, Fab, Grid, LinearProgress, Paper, TextField, ThemeProvider, Tooltip, Typography, createTheme, useMediaQuery } from "@mui/material";
+import axios from "axios";
+import { Dispatch, FC, SetStateAction, useEffect, useMemo, useRef, useState } from "react";
+import usePromise from "react-use-promise";
+import useLocalStorage from "use-local-storage";
 
 interface GameData {
   x: number;
@@ -18,6 +18,8 @@ interface GameData {
 }
 
 const entries = 31661;
+
+const API_KEY = process.env.API_KEY;
 
 const CanvasImageRender: FC<{ link?: string, setGameData: Dispatch<SetStateAction<GameData[]>> }> = ({ link, setGameData }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -149,7 +151,7 @@ const App = () => {
     const cleanedSearch = search.replace(/\//gmi, "%2F")
     const data = !page
       ? (await axios.get(`http://localhost:8080/api/v1/cars/getImages/${cleanedSearch} ${vClass}`)).data.links
-      : (await axios.get(`https://www.googleapis.com/customsearch/v1?key=AIzaSyB4GnoaTU8CUnpaKNDslwJi9lma-8kCTho&cx=013031014986252904024:vnjtgx5lwxi&q=${search} ${vClass}&searchType=image&start=${pages}`)).data.items.map(({ link }: { link: string }) => link)
+      : (await axios.get(`https://www.googleapis.com/customsearch/v1?key=${API_KEY}&cx=013031014986252904024:vnjtgx5lwxi&q=${search} ${vClass}&searchType=image&start=${pages}`)).data.items.map(({ link }: { link: string }) => link)
     return data
   }, [car, page, pages, search]);
 
