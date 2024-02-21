@@ -1,44 +1,9 @@
+import { Alert, Box, Divider, Fade, Grid, Paper, Typography, useTheme } from "@mui/material";
 import { FC } from "react";
-import { useCardle } from "./controller";
-import { Box, Grid, useTheme, Paper, Typography, Divider, Palette, Fade, Alert } from "@mui/material";
 import { useTranslation } from "react-i18next";
-import { Maybe } from "../../types";
-import { SPECIAL_SPLIT_CHAR, TIMER_FADEOUT, YEAR_CORRECTION, YEAR_LENIENCY } from "../constants";
-
-export const getColor = (check: boolean, palette: Palette): string => check
-      ? palette.success.main
-      : palette.error.main;
-
-export const getGuessColor = (
-    check: Maybe<string>,
-    hardMode: boolean,
-    palette: Palette,
-    value?: string,
-  ): string => {
-    if (check === '' || !check) return palette.divider;
-    if (hardMode) {
-      return value?.includes(check) && value !== check
-        ? palette.warning.main
-        : getColor(value === check, palette)
-    }
-    return getColor((value ?? '').includes(check ?? ''), palette)
-  }
-
-export const yearColor = (
-  attemptYear: number,
-  hardMode: boolean,
-  palette: Palette,
-  year: number,
-) => {
-    const checkRange = (yearRange: number) => attemptYear >= year - yearRange && attemptYear <= year + yearRange && year !== attemptYear;
-    if (hardMode) return getGuessColor(String(year), hardMode, palette, String(attemptYear));
-    return checkRange(YEAR_LENIENCY)
-      ? checkRange(YEAR_CORRECTION)
-        ? palette.success.main
-        : palette.warning.main
-      : getColor(year === attemptYear, palette)
-  }
-
+import { getCarData, getGuessColor, getYearColor } from "../../util";
+import { TIMER_FADEOUT } from "../constants";
+import { useCardle } from "./controller";
 
 export const Guesses: FC = () => {
   const { attempts, currentCar, hardMode } = useCardle();
@@ -55,13 +20,13 @@ export const Guesses: FC = () => {
       attempts.map((attempt, i) => {
         if (attempt === 'skipped') return (
           <Fade in={true} key={`skipped-${attempt}-${i}`} timeout={(i + 1) * TIMER_FADEOUT}>
-            <Paper sx={{ p: 1, backgroundColor: palette.warning.dark, textAlign: 'center', m: 1 }}>
+            <Paper sx={{ p: 1, backgroundColor: palette.warning.dark, textAlign: 'center', m: 1, height: 'fit-content' }}>
               <Typography>{t('game.skipped')}</Typography>
             </Paper>
           </Fade>
         )
         if (!attempt.includes('_') || attempt.split('_').length < 3) return <Alert severity="error" key={`${attempt}-${i}-error`}>{t('attempt.error', { guess: attempt })}</Alert>
-        const [year, make, model] = attempt.split(SPECIAL_SPLIT_CHAR);
+        const [year, make, model] = getCarData(attempt);
         const replaceWithChars = (string: string, replace: string) => string.replace(replace, `_${replace}_`)
 
 
@@ -76,7 +41,7 @@ export const Guesses: FC = () => {
           if (splitString.length >= 1) {
             return <>
               {splitString.map((string, l) => {
-                const check = string.includes(boldText ?? '');
+                const check = boldText && string.includes(boldText);
                 if (string === '') return;
                 return (
                   <Typography
@@ -105,23 +70,24 @@ export const Guesses: FC = () => {
           mx: { xs: 1, xl: 0.5 },
           my: 0.5,
           width: '100%',
+          // height: 'fit-content',
         }
         const yearOffset = Number(year) - currentYear;
         const yearOffsetLabel = yearOffset > 0 ? `+${yearOffset}` : `${yearOffset}`;
         return (
-          <Fade in={true} key={`${year} ${model} ${i}`} timeout={(i + 1) * TIMER_FADEOUT}>
+          <Fade key={`${year} ${model} ${i}`} style={{ justifyContent: 'center' }} in={true} timeout={(i + 1) * TIMER_FADEOUT}>
             <Box
               sx={{
                 display: 'flex',
                 justifyContent: 'space-around',
-                my: 1,
+                my: .5,
                 mx: { sx: 0, xl: 1 }
               }}
             >
               <Paper sx={{
                 p: 1,
                 color: (theme) => theme.palette.common.white,
-                backgroundColor: yearColor(
+                backgroundColor: getYearColor(
                   currentYear,
                   hardMode,
                   palette,
@@ -129,7 +95,7 @@ export const Guesses: FC = () => {
                 ),
                 ...commonProps
               }}>
-                <b>{year}</b>
+                {year}
                 {yearOffset !== 0 && <Typography variant="subtitle2">{yearOffsetLabel}</Typography>}
               </Paper>
               <Paper sx={{
@@ -138,7 +104,7 @@ export const Guesses: FC = () => {
                 backgroundColor: getGuessColor(make, hardMode, palette, currentCar?.make),
                 ...commonProps
               }}>
-                <b>{make}</b>
+                {make}
               </Paper>
               <Paper  sx={{
                 p: 1,

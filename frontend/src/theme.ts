@@ -9,6 +9,13 @@ export const themeOptions: ThemeOptions = {
     background: { default: '#151516', paper: '#1f1f23' },
   },
   components: {
+    MuiDialog: {
+      styleOverrides: {
+        paper: {
+          borderRadius: 0,
+        },
+      },
+    },
     MuiAppBar: {
       defaultProps: { color: 'inherit' },
     },

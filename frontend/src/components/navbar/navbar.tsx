@@ -1,22 +1,24 @@
-import { useScrollTrigger, Slide, AppBar, Toolbar, Typography, Box, Divider, List, IconButton, Tooltip, LinearProgress, SwipeableDrawer, ListItem, ListItemButton, ListItemIcon, ListItemText } from "@mui/material";
-import { FC, useContext, useState } from "react";
-import MenuIcon from '@mui/icons-material/Menu';
-import { NavBarContext } from "../../App";
-import { useCardle } from "../cardle/controller";
-import { DateTime } from "luxon";
-import CountDown from 'react-countdown';
 import BarChartIcon from '@mui/icons-material/BarChart';
-import { Settings } from "../cardle/settings";
 import CoffeeIcon from '@mui/icons-material/Coffee';
-import { useTranslation } from "react-i18next";
-import GamepadIcon from '@mui/icons-material/Gamepad';
-import PublicIcon from '@mui/icons-material/Public';
-import EngineeringIcon from '@mui/icons-material/Engineering';
-import HistoryEduIcon from '@mui/icons-material/HistoryEdu';
-import TvIcon from '@mui/icons-material/Tv';
-import FontDownloadIcon from '@mui/icons-material/FontDownload';
 import DirectionsCarIcon from '@mui/icons-material/DirectionsCar';
-import { GRADIENT_START_DEFAULT, GRADIENT_END_DEFAULT } from "../constants";
+import EngineeringIcon from '@mui/icons-material/Engineering';
+import FontDownloadIcon from '@mui/icons-material/FontDownload';
+import GamepadIcon from '@mui/icons-material/Gamepad';
+import HistoryEduIcon from '@mui/icons-material/HistoryEdu';
+import MenuIcon from '@mui/icons-material/Menu';
+import PublicIcon from '@mui/icons-material/Public';
+import TvIcon from '@mui/icons-material/Tv';
+import TwitterIcon from '@mui/icons-material/Twitter';
+import { AppBar, Box, Divider, IconButton, LinearProgress, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Slide, SwipeableDrawer, Toolbar, Tooltip, Typography, useScrollTrigger } from "@mui/material";
+import { DateTime } from "luxon";
+import { FC, useContext, useEffect, useState } from "react";
+import CountDown from 'react-countdown';
+import { useTranslation } from "react-i18next";
+import { NavBarContext } from "../../App";
+import { storage } from "../../util/localstorage";
+import { useCardle } from "../cardle/controller";
+import { Settings } from "../cardle/settings";
+import { GRADIENT_END_DEFAULT, GRADIENT_START_DEFAULT } from "../constants";
 
 const DRAWER_WIDTH = '16rem';
 
@@ -65,12 +67,18 @@ export const Navbar: FC = () => {
   const statsOpen = useContext(NavBarContext);
   const { currentCar } = useCardle();
   const [progress, setProgress] = useState(calculateDateDifferencePercentage(currentCar?.resetRegion));
-  const startColor = localStorage.getItem('startColor') ?? GRADIENT_START_DEFAULT
-  const endColor = localStorage.getItem('endColor') ?? GRADIENT_END_DEFAULT
+  const [startColor, setStartColor] = useState(storage.get('startColor', GRADIENT_START_DEFAULT));
+  const [endColor, setEndColor] = useState(storage.get('endColor', GRADIENT_END_DEFAULT));
 
-  const handleDrawerToggle = () => {
-    setMobileOpen(true);
-  };
+  useEffect(() => {
+    window.addEventListener('storage', () => {
+      setStartColor(storage.get('startColor', GRADIENT_START_DEFAULT));
+      setEndColor(storage.get('endColor', GRADIENT_END_DEFAULT));
+    })
+    return () => window.removeEventListener('storage', () => {});
+  }, [])
+
+  const handleDrawerToggle = () => setMobileOpen(true);
 
   const listItems = (
     <>
@@ -87,6 +95,14 @@ export const Navbar: FC = () => {
       <IconButton
         edge="end"
         sx={{ ml: 1 }}
+        href="https://twitter.com/cardle246102"
+        target="_blank"
+      >
+        <TwitterIcon />
+      </IconButton>
+      <IconButton
+        edge="end"
+        sx={{ ml: 1 }}
         onClick={() => statsOpen.setOpen()}
       >
         <BarChartIcon />
@@ -96,9 +112,9 @@ export const Navbar: FC = () => {
   )
 
   const drawer = (
-    <Box onClick={handleDrawerToggle} sx={{ textAlign: 'center' }}>
-      <Typography variant="h6" sx={{ py: 1, background: startColor.slice(0, -2)}}>
-        {t('otherDles.title')}
+    <Box onClick={handleDrawerToggle} sx={{ textAlign: 'center' }} component="header">
+      <Typography variant="h1" sx={{ py: 1, fontSize: '1.75rem', background: startColor.slice(0, -2)}}>
+        {t('branding.cardle')}
       </Typography>
       <Divider />
       <List>
@@ -148,13 +164,17 @@ export const Navbar: FC = () => {
   const container = document.body;
   const reset = DateTime.local().setZone(currentCar?.resetRegion).endOf('day');
 
+  const background = (deg: number): string => `
+    linear-gradient(${deg}deg, ${startColor} 0%, ${endColor} 100%)
+  `;
+
   return (
     <>
       <HideOnScroll>
         <AppBar component="nav" sx={{ '& > .MuiToolbar-root': { minHeight: '3rem !important' } }}>
           <Toolbar
             sx={{
-              background: `linear-gradient(9deg, ${startColor} 0%, ${endColor} 100%)`,
+              background: background(90),
             }}
           >
             <IconButton
@@ -215,7 +235,7 @@ export const Navbar: FC = () => {
             '& .MuiDrawer-paper': {
               boxSizing: 'border-box',
               width: DRAWER_WIDTH,
-              background: `linear-gradient(180deg, ${startColor} 0%, ${endColor} 100%)`,
+              background: background(180),
               color: (theme) => theme.palette.common.white
             },
             '& .MuiSvgIcon-root': {

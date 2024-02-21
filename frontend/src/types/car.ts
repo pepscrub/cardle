@@ -1,4 +1,4 @@
-import { Nullable, ArrayOrFlat } from "./generics";
+import { ArrayOrFlat, Nullable } from "./generics";
 
 export interface Car {
   _id: string;

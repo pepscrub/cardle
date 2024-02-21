@@ -4,12 +4,12 @@ import { CardleProvider } from './components/cardle/controller'
 import i18next from "i18next";
 import { initReactI18next } from 'react-i18next';
 import en from './localization/en.json';
-import { FC, createContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useMemo, useState } from 'react';
 import useLocalStorage from 'react-use-localstorage';
-import { SnackbarProvider, useSnackbar } from 'notistack';
-import devtools from 'devtools-detect';
+import { SnackbarProvider } from 'notistack';
 import { themeOptions } from './theme';
-import { useConfetti } from './util/useConfetti';
+import { GoogleAdBanner } from './components/cardle/ads';
+import { DevChecker } from './util';
 
 i18next
   .use(initReactI18next)
@@ -21,27 +21,6 @@ i18next
 
 export const ColorModeContext = createContext({ toggleColorMode: () => {} });
 export const NavBarContext = createContext({ open: false, setOpen: () => {}, close: () => {} })
-
-const DevChecker: FC = () => {
-  const { enqueueSnackbar } = useSnackbar();
-  const jsConfetti = useConfetti();
-
-  useEffect(() => {
-    window.addEventListener('devtoolschange', () => {
-      if (!devtools.isOpen) {
-        enqueueSnackbar('CHEATER CHEATER PUMPKIN EATER', { variant: 'warning' });
-        console.clear();
-        console.log('%cHaving a look around? If you find any bugs, report them to %cbrendan@freeman.dev', 'font-family: "Fira Code", monospace;', 'font-family: "Roboto", sans-serif; font-weight: 800; color: #34bacf;');
-        jsConfetti?.addConfetti({
-          emojis: ['🎃', '🤥', '🤹🏻‍♀️', '🚫', '🤡'],
-       });
-      }
-    })
-    return () => window.removeEventListener('devtoolschange', () => {});
-  }, []);
-
-  return null;
-}
 
 const App = () => {
   const prefersDarkMode = useMediaQuery('(prefers-color-scheme: dark)');
@@ -78,6 +57,7 @@ const App = () => {
             <CardleProvider>
               <Navbar />
               <Cardle />
+              <GoogleAdBanner />
             </CardleProvider>
           </ThemeProvider>
         </SnackbarProvider>

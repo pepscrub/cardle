@@ -1,10 +1,10 @@
-import { collection, gameCollection, setGameDay } from "../../server";
-import express from "express";
-import { randomUUID } from 'crypto';
-import fs from 'fs';
-import path from 'path';
 import axios from "axios";
 import * as cheerio from 'cheerio';
+import { randomUUID } from 'crypto';
+import express from "express";
+import fs from 'fs';
+import path from 'path';
+import { collection, gameCollection, setGameDay } from "../../server";
 import { Car } from "../../types/cars";
 
 const router = express.Router();
@@ -25,31 +25,6 @@ router.get('/makes', async (_req, res) => {
     { $sort: { make: 1 } },
   ]).toArray();
   res.send(data.map(({make}) => make));
-})
-
-router.get('/getImages/:query', async (req, res) => {
-  const query = req.params.query
-  const { data } = await axios.get(`https://commons.wikimedia.org/w/index.php?search=${query}&title=Special:MediaSearch&go=Go&type=image&format=json`, {
-    headers: {
-      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36"
-    }
-  });
-
-  const links: string[] = [];
-  const htmlDoc = cheerio.load(data)
-  const anchors = htmlDoc('img.sd-image');
-  anchors.map((_i, element) => {
-    const link = element.attribs.src as string;
-    links.push(
-      link
-        .replace('/thumb', '')
-        .replace(/\/(?:.(?!\/))+$/, '')
-    );
-  })
-
-  console.log(links)
-
-  res.send({ links });
 })
 
 router.get('/models/:make', async (req, res) => {
@@ -78,6 +53,31 @@ router.get('/todaysGame', async (_req, res) => {
     ...randomEntry,
     resetRegion: Intl.DateTimeFormat().resolvedOptions().timeZone
   });
+})
+
+router.get('/getImages/:query', async (req, res) => {
+  const query = req.params.query
+  const { data } = await axios.get(`https://commons.wikimedia.org/w/index.php?search=${query}&title=Special:MediaSearch&go=Go&type=image&format=json`, {
+    headers: {
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36"
+    }
+  });
+
+  const links: string[] = [];
+  const htmlDoc = cheerio.load(data)
+  const anchors = htmlDoc('img.sd-image');
+  anchors.map((_i, element) => {
+    const link = element.attribs.src as string;
+    links.push(
+      link
+        .replace('/thumb', '')
+        .replace(/\/(?:.(?!\/))+$/, '')
+    );
+  })
+
+  console.log(links)
+
+  res.send({ links });
 })
 
 router.delete('/:index', async (req, res) => {

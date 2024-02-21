@@ -1,33 +1,33 @@
-import { Dialog, DialogContent, DialogTitle, Divider, Grid, IconButton, Switch, Typography, useTheme } from "@mui/material";
-import { FC, Fragment, useContext, useEffect, useState } from "react";
-import SettingsIcon from '@mui/icons-material/Settings';
-import { useTranslation } from "react-i18next";
-import CloseIcon from '@mui/icons-material/Close';
-import { ColorModeContext } from "../../App";
-import VideogameAssetIcon from '@mui/icons-material/VideogameAsset';
-import DarkModeIcon from '@mui/icons-material/DarkMode';
-import LightModeIcon from '@mui/icons-material/LightMode';
-import { MuiColorInput } from 'mui-color-input'
-import { useCardle } from "./controller";
 import ChildFriendlyIcon from '@mui/icons-material/ChildFriendly';
-import useLocalStorage from "react-use-localstorage";
+import CloseIcon from '@mui/icons-material/Close';
+import DarkModeIcon from '@mui/icons-material/DarkMode';
 import GradientIcon from '@mui/icons-material/Gradient';
-import { GRADIENT_START_DEFAULT, GRADIENT_END_DEFAULT } from "../constants";
+import LightModeIcon from '@mui/icons-material/LightMode';
+import SettingsIcon from '@mui/icons-material/Settings';
+import VideogameAssetIcon from '@mui/icons-material/VideogameAsset';
+import { Dialog, DialogContent, DialogTitle, Divider, Grid, IconButton, Switch, Typography, useTheme } from "@mui/material";
+import { MuiColorInput } from 'mui-color-input';
+import { FC, Fragment, useContext, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { ColorModeContext } from "../../App";
+import { storage } from "../../util/localstorage";
+import { GRADIENT_END_DEFAULT, GRADIENT_START_DEFAULT } from "../constants";
+import { useCardle } from "./controller";
 
 export const Settings: FC = () => {
   const [open, setOpen] = useState(false);
-  const [startColor, setStartColor] = useLocalStorage('startColor', GRADIENT_START_DEFAULT)
-  const [endColor, setEndColor] = useLocalStorage('endColor', GRADIENT_END_DEFAULT)
+  const [startColor, setStartColor] = useState(storage.get('startColor', GRADIENT_START_DEFAULT));
+  const [endColor, setEndColor] = useState(storage.get('endColor', GRADIENT_END_DEFAULT));
   const { hardMode, setHardMode } = useCardle();
   const { t } = useTranslation();
   const theme = useTheme();
   const colorMode = useContext(ColorModeContext);
 
-  useEffect(() => {
-    if (startColor === '') setStartColor(GRADIENT_START_DEFAULT);
-    if (endColor === '') setEndColor(GRADIENT_END_DEFAULT);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [startColor, endColor]);
+  const updateColor = (key: string, color: string) => {
+    if (key === 'startColor') setStartColor(color);
+    if (key === 'endColor') setEndColor(color);
+    storage.set(key, color)
+  }
 
   const items = [
     {
@@ -36,15 +36,16 @@ export const Settings: FC = () => {
       value: hardMode,
       onUpdate: (value: boolean) => {
         setHardMode(value);
-        localStorage.setItem('hardMode', String(value));
+        storage.set('hardMode', value);
       },
+      updateChecked: true,
       icon: hardMode ? <VideogameAssetIcon /> : <ChildFriendlyIcon />
     },
     {
       title: t('settings.startColor.title'),
       subTitle: t('settings.startColor.desc'),
       value: startColor,
-      onUpdate: (newValue: string) => setStartColor(newValue),
+      onUpdate: (newValue: string) => updateColor('startColor', newValue),
       colorInput: true,
       icon: <GradientIcon />
     },
@@ -52,7 +53,7 @@ export const Settings: FC = () => {
       title: t('settings.endColor.title'),
       subTitle: t('settings.endColor.desc'),
       value: endColor,
-      onUpdate: (newValue: string) => setEndColor(newValue),
+      onUpdate: (newValue: string) => updateColor('endColor', newValue),
       colorInput: true,
       icon: <GradientIcon />
     },
@@ -60,9 +61,11 @@ export const Settings: FC = () => {
       title: t('settings.darkMode.title'),
       value: theme.palette.mode === 'dark',
       onUpdate: () => colorMode.toggleColorMode(),
+      updateChecked: true,
       icon: theme.palette.mode === 'dark' ? <LightModeIcon /> : <DarkModeIcon />
     },
   ]
+  
 
   return (
     <>
@@ -72,7 +75,11 @@ export const Settings: FC = () => {
       <Dialog
         onClose={() => setOpen(false)}
         open={open}
-        sx={{ '.MuiPaper-root': { width: '100%' } }}
+        sx={{
+          '.MuiPaper-root': {
+            width: '100%',
+          },
+        }}
       >
         <DialogTitle><Typography variant="h2" component="span">{t('settings.title')}</Typography></DialogTitle>
         <IconButton
@@ -98,7 +105,7 @@ export const Settings: FC = () => {
                 </Grid>
                 {item.colorInput
                   ? <MuiColorInput format="hex8" size="small" value={item.value} onChange={item.onUpdate} sx={{ ml: 'auto', width: '9rem' }}/>
-                  : typeof item.value === 'boolean' && <Switch sx={{ ml: 'auto' }} checked={item.value} onChange={({ target }) => item.onUpdate(target.checked)} />
+                  : item.updateChecked && <Switch sx={{ ml: 'auto' }} checked={item.value} onChange={({ target }) => item.onUpdate(target.checked)} />
                 }
               </Grid>
               <Divider />

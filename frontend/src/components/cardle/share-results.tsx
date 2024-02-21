@@ -1,26 +1,22 @@
-import { FC, useContext, useEffect, useState } from "react";
-import { useCardle } from "./controller"
-import { Box, Button, Collapse, Dialog, DialogTitle, Divider, Grid, IconButton, LinearProgress, LinearProgressProps, Typography, useTheme } from "@mui/material";
-import { useTranslation } from "react-i18next";
-import ShareIcon from '@mui/icons-material/Share';
-import { useSnackbar } from 'notistack';
-import { NavBarContext } from "../../App";
-import { DateTime } from "luxon";
 import CloseIcon from '@mui/icons-material/Close';
-import { Guesses, getGuessColor, yearColor } from "./guess";
-import { SPECIAL_SPLIT_CHAR } from "../constants";
+import ShareIcon from '@mui/icons-material/Share';
+import { Box, Button, Collapse, Dialog, DialogTitle, Divider, Grid, IconButton, LinearProgress, LinearProgressProps, Typography, useTheme } from "@mui/material";
+import { useDetectAdBlock } from "adblock-detect-react";
+import { DateTime } from "luxon";
+import { useSnackbar } from 'notistack';
+import { FC, useContext, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { NavBarContext } from "../../App";
+import { getCarData, getGuessColor, getYearColor } from "../../util";
+import { storage } from '../../util/localstorage';
+import { EMOJI_RESULTS } from '../constants';
+import { useCardle } from "./controller";
+import { Guesses } from "./guess";
 
 interface GameResults {
   attempts: string[];
   win: boolean;
   inProgress: boolean
-}
-
-enum EmojiResults {
-  skipped = '🟧',
-  close = '🟨',
-  correct = '🟩',
-  incorrect = '🟥',
 }
 
 const StatItem: FC<{ title: string; value: string }> = ({ title, value }) => (
@@ -40,12 +36,13 @@ const LinearProgressWithLabel = (props: LinearProgressProps & { value: number; g
       <Typography
         variant="body2"
         color="text.secondary"
-        style={{
+        sx={{
           position: "absolute",
           color: "white",
           top: 0,
           left: "95%",
           transform: "translateX(-50%)",
+          userSelect: 'none'
         }}
       >
         {props.guesses}
@@ -54,23 +51,39 @@ const LinearProgressWithLabel = (props: LinearProgressProps & { value: number; g
   );
 }
 
+const BrowniePoints: FC = () => {
+  const adBlockDetected = useDetectAdBlock();
+  const { t } = useTranslation();
+
+  return <>
+    {!adBlockDetected &&  <Typography variant="subtitle2">{t('ad.enabled')}</Typography>}
+  </>
+}
+
 export const ShareResults: FC = () => {
   const [games, setGames] = useState<GameResults[]>([]);
   const [winRate, setWinRate] = useState(0);
   const [winDisruptions, setWinDisruptions] = useState<Record<number, number>>({});
   const largestValue = Math.max(...Object.values(winDisruptions)) * 2;
-  const { attempts, currentCar, inProgress, stats, hardMode } = useCardle();
+  const { attempts, currentCar, inProgress, stats, hardMode, win, } = useCardle();
   const { t } = useTranslation();
   const { enqueueSnackbar } = useSnackbar();
   const { palette } = useTheme();
   const statsOpen = useContext(NavBarContext);
   const currentYear = Number(currentCar?.year) ?? 1984;
 
+  const car = `${currentCar?.year} ${currentCar?.make} ${currentCar?.model}`;
+  const color = win
+    ? palette.success.main
+    : inProgress
+      ? palette.divider
+      : palette.error.main;
+
   const switchToEmojis = (value: string): string => {
-    if (palette.success.main === value) return EmojiResults.correct;
-    if (palette.warning.main === value) return EmojiResults.close;
-    if (palette.error.main === value) return EmojiResults.incorrect;
-    return EmojiResults.skipped;
+    if (palette.success.main === value) return EMOJI_RESULTS.correct;
+    if (palette.warning.main === value) return EMOJI_RESULTS.close;
+    if (palette.error.main === value) return EMOJI_RESULTS.incorrect;
+    return EMOJI_RESULTS.skipped;
     
   }
 
@@ -78,9 +91,7 @@ export const ShareResults: FC = () => {
     const arr = [];
     for (let i = 0; i < localStorage.length; i++){
       const item = localStorage.key(i);
-      if (item && item?.substring(0,5) == 'game_') {
-          arr.push(JSON.parse(localStorage.getItem(item) as string));
-      }
+      if (item && item?.substring(0,5) == 'game_') arr.push(storage.get(item));
     }
     setGames(arr);
   }, [inProgress])
@@ -101,14 +112,14 @@ export const ShareResults: FC = () => {
     if (gamesWon && games.length) setWinRate(gamesWon / games.length * 100)
   }, [games, inProgress]);
 
-  const results = attempts.map((attempt) => attempt === 'skipped' ? attempt : attempt.split(SPECIAL_SPLIT_CHAR));
+  const results = attempts.map((attempt) => attempt === 'skipped' ? attempt : getCarData(attempt));
 
   const emojis = results.map((value) => {
-    if (value === 'skipped') return Array.from({ length: 3 }).map(() => EmojiResults.skipped);
+    if (value === 'skipped') return Array.from({ length: 3 }).map(() => EMOJI_RESULTS.skipped);
     const [year, make, model] = value;
     return [
       switchToEmojis(
-        yearColor(
+        getYearColor(
           currentYear,
           hardMode,
           palette,
@@ -152,10 +163,31 @@ export const ShareResults: FC = () => {
       <Dialog
         onClose={() => statsOpen.close()}
         open={statsOpen.open}
-        sx={{ overflowX: 'hidden' }}
+        sx={{
+          overflowX: 'hidden',
+          '.MuiDialog-container > div': {
+            border: `2px solid ${color}`,
+            width: '100%',
+            '&::-webkit-scrollbar': {
+              width: '1em'
+            },
+            '&::-webkit-scrollbar-track': {
+              '-webkit-box-shadow': 'inset 0 0 6px rgba(0,0,0,0.00)'
+            },
+            '&::-webkit-scrollbar-thumb': {
+              backgroundColor: color,
+            }
+          },
+        }}
+        maxWidth="md"
       >
-        <DialogTitle>
-          <Typography variant="h2" component="span">{t('stats.title')}</Typography>
+        <DialogTitle component="div" sx={{ mt: 2 }}>
+          {
+            inProgress
+              ? <Typography variant="h2" component="span">{t('stats.title')}</Typography>
+              : <Typography variant="h2" component="span">{car}</Typography>
+          }
+          <BrowniePoints />
         </DialogTitle>
         <IconButton
           aria-label="close"
@@ -170,7 +202,7 @@ export const ShareResults: FC = () => {
           <CloseIcon />
         </IconButton>
         <Divider />
-        <Grid sx={{ display: 'flex' }}>
+        <Grid sx={{ display: 'flex', justifyContent: 'space-around' }}>
           <StatItem title={t('stats.gamesPlayed')} value={String(games.length)} />
           <StatItem title={t('stats.won')} value={t('stats.winRate', { winRate: Math.floor(winRate) })} />
           <StatItem title={t('stats.current_streak')} value={String(stats.currentStreak)} />

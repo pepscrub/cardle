@@ -1,4 +1,10 @@
 {
+  "ad": {
+    "blocked": "Please consider enabling ads",
+    "error": "Unable to load ads :(",
+    "enabled": "❤️ Thank you for playing with ads",
+    "browniePoints": "🍪"
+  },
   "attempt": {
     "error": "Could not read user requests, invalid value: '{{guess}}'"
   },
@@ -59,7 +65,7 @@
   "otherDles": {
     "title": "Other daily games",
     "cardle": {
-      "title": "Cardle",
+      "title": "Cardle.uk",
       "hint": "Guess the car"
     },
     "gamedle": {

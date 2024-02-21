@@ -1,19 +1,25 @@
-import { Box, Collapse, Container, TextField, Typography, Slider, Autocomplete, Button, CardMedia, Card, CardContent, CardActions, Divider, Grid, Tooltip, useTheme, Skeleton } from "@mui/material";
-import { FC, useEffect, useState } from "react";
-import { useCardle } from "./controller";
-import { useTranslation } from "react-i18next";
-import { BlurImage } from "../image";
+import { Autocomplete, Box, Button, Card, CardActions, CardContent, CardMedia, Collapse, Container, Divider, Grid, Skeleton, Slider, TextField, Tooltip, Typography, keyframes, useTheme } from "@mui/material";
 import { DateTime } from "luxon";
+import { FC, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import usePromise from "react-use-promise";
-import axios from "axios";
-import { getGuessColor, yearColor } from "./guess";
-import { ShareResults } from "./share-results";
-import { SPECIAL_SPLIT_CHAR } from "../constants";
-import { BottomNavResults } from "./nav-results";
 import { useScreen } from "../../hooks/breakpoints";
-import { GoogleAdBanner } from "./ads";
+import { getCarData, getDataWithCache, getDataWithStored, getGuessColor, getYearColor } from "../../util";
+import { DEFAULT_MAX_GUESSES } from "../constants";
+import { BlurImage } from "../image";
+import { useCardle } from "./controller";
+import { BottomNavResults } from "./nav-results";
+import { ShareResults } from "./share-results";
 
 const modelsCacheMap: Map<string, Promise<string[]>> = new Map();
+const heartBeat = keyframes`
+  0% {
+    box-shadow: 0px 0px 80px -200px rgba(255,0,0,0.67);
+  }
+  100% {
+    box-shadow: 0px 0px 72px 0px rgba(255,0,0,0.67);
+  }
+`;
 
 const RevealHint: FC<{ hint: string, label: string }> = ({ hint, label }) => {
   const { inProgress } = useCardle();
@@ -53,32 +59,19 @@ export const Cardle: FC = () => {
   } = useCardle();
   const { t } = useTranslation();
   const isSmallScreen = useScreen();
-  const isLargeScreen = useScreen('xl');
   const gameData = currentCar?.gameData;
   const { palette } = useTheme();
-  const [maxGuesses, setMaxGuesses] = useState(9);
-  const [guessedYear, guessedMake, guessedModel] = attempts[attempts.length - 1]?.split(SPECIAL_SPLIT_CHAR) ?? ['', '', '']
-  const [makes, , makesState] = usePromise<string[]>(async () => {
-    const storedMakes = JSON.parse(localStorage.getItem('makes') as string)?.sort();
-    if (storedMakes) return Promise.resolve(storedMakes);
-    const { data } = await axios.get('/api/v1/cars/makes');
-    localStorage.setItem('makes', JSON.stringify(data));
-    return data;
-  }, []);
+  const [maxGuesses, setMaxGuesses] = useState(DEFAULT_MAX_GUESSES);
+  const [guessedYear, guessedMake, guessedModel] = getCarData(attempts[attempts.length - 1])
+  const [makes, , makesState] = usePromise<string[]>(async () => getDataWithStored('makes', '/api/v1/cars/makes'), []);
 
   const [models, , modelsState] = usePromise<string[]>(async () => {
-    const makeCheck = make === '' ? (guessedMake === '' ? null : guessedMake) : make;
-    if (!makeCheck) return Promise.resolve();
-    const getModelsCacheMap = await modelsCacheMap.get(makeCheck);
-    if (getModelsCacheMap) return Promise.resolve(getModelsCacheMap);
-    const { data } = await axios.get(`/api/v1/cars/models/${makeCheck}`);
-    if (!getModelsCacheMap) modelsCacheMap.set(makeCheck, data);
-    return data
+    const currentMake = make === '' ? (guessedMake === '' ? null : guessedMake) : make;
+    if (!currentMake) return Promise.resolve([]);
+    return getDataWithCache(modelsCacheMap, currentMake, `/api/v1/cars/models/${currentMake}`)
   }, [make, guessedMake]);
 
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const handleChange = (_: unknown, newValue: number | number[], _thumb: number) => {
+  const handleChange = (_: unknown, newValue: number | number[]) => {
     if (typeof newValue === 'object') return;
     if (!win && newValue > attempts.length) return setStep(step);
     setStep(newValue)
@@ -95,15 +88,20 @@ export const Cardle: FC = () => {
   useEffect(() => {
     setMake(guessedMake);
     setModel(guessedModel);
-  // Putting the setFunctions does functionality nothing
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [guessedMake, guessedModel]);
+  }, [guessedMake, guessedModel, setMake, setModel]);
 
   if (!currentCar || !gameData) return (
-    <Container sx={{ alignItems: 'stretch', display: 'flex', flexDirection: 'column', mt: 10, }}>
+    <Container
+      sx={{
+        alignItems: 'stretch',
+        display: 'flex',
+        flexDirection: 'column',
+        mt: 10,
+        position: 'relative'
+      }}
+    >
       <Card
         sx={{
-          boxShadow: 5,
           pb: 1,
           borderColor: ({ palette }) => win
             ? palette.success.main
@@ -168,7 +166,6 @@ export const Cardle: FC = () => {
         display: 'flex',
         flexDirection: 'column',
         mt: 9,
-        overflow: isLargeScreen ? 'show' : 'hidden',
         position: 'relative',
       }}
     
@@ -176,6 +173,9 @@ export const Cardle: FC = () => {
       <Card
         sx={{
           boxShadow: 5,
+          animation: attempts.length >= maxGuesses - 1 && inProgress
+            ? `${heartBeat} 1s cubic-bezier(0.62,-0.02, 0.3, 1.45) infinite alternate`
+            : 'none',
           pb: 1,
           borderColor: ({ palette }) => win
             ? palette.success.main
@@ -258,7 +258,7 @@ export const Cardle: FC = () => {
                 value={year}
                 valueLabelDisplay="auto"
                 sx={{
-                  color: yearColor(Number(guessedYear ?? validAnswers.year), hardMode, palette, Number(currentCar.year ?? '1950')),
+                  color: getYearColor(Number(guessedYear ?? validAnswers.year), hardMode, palette, Number(currentCar.year ?? '1950')),
                 }}
               />
               <Box sx={{ mt: 1, display: 'flex' }}>
@@ -305,7 +305,6 @@ export const Cardle: FC = () => {
           </CardActions>
         </Box>
       </Card>
-      <GoogleAdBanner />
     </Container>
   )
 }
